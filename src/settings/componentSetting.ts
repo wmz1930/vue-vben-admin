@@ -9,11 +9,11 @@ export default {
     // support xxx.xxx.xxx
     fetchSetting: {
       // The field name of the current page passed to the background
-      pageField: 'page',
+      pageField: 'current',
       // The number field name of each page displayed in the background
-      sizeField: 'pageSize',
+      sizeField: 'size',
       // Field name of the form data returned by the interface
-      listField: 'items',
+      listField: 'records',
       // Total number of tables returned by the interface field name
       totalField: 'total',
     },
@@ -27,11 +27,16 @@ export default {
     defaultSortFn: (sortInfo: SorterResult) => {
       const { field, order } = sortInfo;
       if (field && order) {
+        // 修改排序参数
         return {
-          // The sort field passed to the backend you
-          field,
-          // Sorting method passed to the background asc/desc
-          order,
+          orders: [
+            {
+              // The sort field passed to the backend you
+              column: field,
+              // Sorting method passed to the background asc/desc
+              asc: order === 'ascend' ? true : false,
+            },
+          ],
         };
       } else {
         return {};

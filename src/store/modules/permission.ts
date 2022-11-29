@@ -6,7 +6,11 @@ import { useI18n } from '/@/hooks/web/useI18n';
 import { useUserStore } from './user';
 import { useAppStoreWithOut } from './app';
 import { toRaw } from 'vue';
-import { transformObjToRoute, flatMultiLevelRoutes } from '/@/router/helper/routeHelper';
+import {
+  transformObjToRoute,
+  flatMultiLevelRoutes,
+  transformBackObj,
+} from '/@/router/helper/routeHelper';
 import { transformRouteToMenu } from '/@/router/helper/menuHelper';
 
 import projectSetting from '/@/settings/projectSetting';
@@ -15,6 +19,7 @@ import { PermissionModeEnum } from '/@/enums/appEnum';
 
 import { asyncRoutes } from '/@/router/routes';
 import { ERROR_LOG_ROUTE, PAGE_NOT_FOUND_ROUTE } from '/@/router/routes/basic';
+import dashboard from '/@/router/routes/modules/dashboard';
 
 import { filter } from '/@/utils/helper/treeHelper';
 
@@ -104,7 +109,8 @@ export const usePermissionStore = defineStore({
       this.lastBuildMenuTime = 0;
     },
     async changePermissionCode() {
-      const codeList = await getPermCode();
+      const resourceList = await getPermCode();
+      const codeList = resourceList.map((item) => item['resourceKey']) as [];
       this.setPermCodeList(codeList);
     },
 
@@ -221,8 +227,10 @@ export const usePermissionStore = defineStore({
           // 这个功能可能只需要执行一次，实际项目可以自己放在合适的时间
           let routeList: AppRouteRecordRaw[] = [];
           try {
-            await this.changePermissionCode();
-            routeList = (await getMenuList()) as AppRouteRecordRaw[];
+            this.changePermissionCode();
+            // 将后台返回的route转换为前端需要的route格式
+            const resourecs = toRaw(await getMenuList()) || [];
+            routeList = transformBackObj(resourecs) as AppRouteRecordRaw[];
           } catch (error) {
             console.error(error);
           }
@@ -231,6 +239,7 @@ export const usePermissionStore = defineStore({
           // 动态引入组件
           routeList = transformObjToRoute(routeList);
 
+          routeList.unshift(dashboard);
           //  Background routing to menu structure
           //  后台路由到菜单结构
           const backMenuList = transformRouteToMenu(routeList);

@@ -1,10 +1,10 @@
 import type { AppRouteModule, AppRouteRecordRaw } from '/@/router/types';
-import type { Router, RouteRecordNormalized } from 'vue-router';
+import type { Router, RouteRecordNormalized, RouteMeta } from 'vue-router';
 
 import { getParentLayout, LAYOUT, EXCEPTION_COMPONENT } from '/@/router/constant';
 import { cloneDeep, omit } from 'lodash-es';
 import { warn } from '/@/utils/log';
-import { createRouter, createWebHashHistory } from 'vue-router';
+import { createRouter, createWebHistory } from 'vue-router';
 
 export type LayoutMapKey = 'LAYOUT';
 const IFRAME = () => import('/@/views/sys/iframe/FrameBlank.vue');
@@ -68,7 +68,7 @@ function dynamicImport(
 }
 
 // Turn background objects into routing objects
-// 将背景对象变成路由对象
+// 将后台对象变成路由对象
 export function transformObjToRoute<T = AppRouteModule>(routeList: AppRouteModule[]): T[] {
   routeList.forEach((route) => {
     const component = route.component as string;
@@ -91,6 +91,73 @@ export function transformObjToRoute<T = AppRouteModule>(routeList: AppRouteModul
     route.children && asyncImportRoute(route.children);
   });
   return routeList as unknown as T[];
+}
+
+// 因后台数据返回格式和前端不一致，所以这里做一下转换
+export function transformBackObj<T = AppRouteModule>(resources): T[] {
+  const accessedRouters: AppRouteModule[] = [];
+  resources.forEach((resource) => {
+    const route = {} as AppRouteModule;
+    route.path = resource.resourcePath;
+    route.name = resource.resourceKey;
+
+    route.meta = {} as RouteMeta;
+    route.meta.title = resource.resourceName;
+    // 可以读取自定义菜单图表
+    route.meta.icon =
+      resource?.resourceIcon?.indexOf(':') == -1
+        ? 'system-' + resource?.resourceIcon + '|svg'
+        : resource?.resourceIcon;
+    route.meta.orderNo = resource.resourceLevel;
+    route.meta.hideMenu = !resource.resourceShow;
+    route.meta.ignoreKeepAlive = !resource.resourceCache;
+
+    // 一级菜单
+    if (resource.resourceUrl.toUpperCase() === 'LAYOUT') {
+      route.component = 'LAYOUT';
+      // 除了 layout 对应的 path 前面需要加 /，其余子路由都不要以/开头
+      route.path = `/${route.path}`;
+      // 菜单没有实际页面，这里配置redirect
+      route.redirect = resource.resourcePageName;
+    } else if (resource.resourceUrl.toUpperCase() === 'NESTED') {
+      // 二级菜单
+      route.component = resource.resourceUrl;
+      // 菜单没有实际页面，这里配置redirect
+      route.redirect = resource.resourcePageName;
+    } else {
+      // 子菜单
+      // 判断是内嵌外链接还是重新打开页面的外链接
+      if (
+        resource.resourceUrl?.startsWith('https://') ||
+        resource.resourceUrl?.startsWith('http://')
+      ) {
+        // 如果path和url相同，那么直接跳出外部页面，如果不相同，则在内部加载
+        if (resource.resourceUrl === resource.resourcePath) {
+          route.component = 'LAYOUT';
+        } else {
+          // 内部加载
+          route.meta.frameSrc = resource.resourceUrl;
+        }
+      } else {
+        route.component = resource.resourceUrl;
+      }
+
+      // 当设置为不在菜单栏展示时，需要设置左侧选中菜单
+      if (
+        !resource.resourceShow &&
+        resource.currentActivePath &&
+        '' !== resource.currentActivePath
+      ) {
+        route.meta.currentActiveMenu = resource.currentActivePath;
+      }
+    }
+
+    if (resource.children && resource.children.length) {
+      route.children = transformBackObj(resource.children);
+    }
+    accessedRouters.push(route);
+  });
+  return accessedRouters as unknown as T[];
 }
 
 /**
@@ -121,7 +188,9 @@ function promoteRouteLevel(routeModule: AppRouteModule) {
   // createRouter 创建一个可以被 Vue 应用程序使用的路由实例
   let router: Router | null = createRouter({
     routes: [routeModule as unknown as RouteRecordNormalized],
-    history: createWebHashHistory(),
+    // history: createWebHashHistory(),
+    // 使用history模式不使用hash模式
+    history: createWebHistory(),
   });
   // getRoutes： 获取所有 路由记录的完整列表。
   const routes = router.getRoutes();

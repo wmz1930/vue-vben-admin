@@ -53,6 +53,8 @@ export function useRuleFormItem<T extends Recordable>(
       nextTick(() => {
         emit?.(changeEvent, value, ...(toRaw(unref(emitData)) || []));
       });
+      // 1. 修复当apiselelct不设置默认值时，第一次选择值会触发验证，第二次选择则会恢复正常
+      emit?.(changeEvent, value, ...(toRaw(unref(emitData)) || []));
     },
   });
 

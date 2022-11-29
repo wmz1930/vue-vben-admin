@@ -4,9 +4,9 @@ import { defineStore } from 'pinia';
 import { store } from '/@/store';
 import { RoleEnum } from '/@/enums/roleEnum';
 import { PageEnum } from '/@/enums/pageEnum';
-import { ROLES_KEY, TOKEN_KEY, USER_INFO_KEY } from '/@/enums/cacheEnum';
+import { ROLES_KEY, TOKEN_KEY, REFRESH_TOKEN_KEY, USER_INFO_KEY } from '/@/enums/cacheEnum';
 import { getAuthCache, setAuthCache } from '/@/utils/auth';
-import { GetUserInfoModel, LoginParams } from '/@/api/sys/model/userModel';
+import { GetUserInfoModel, LoginParams, RoleInfo } from '/@/api/sys/model/userModel';
 import { doLogout, getUserInfo, loginApi } from '/@/api/sys/user';
 import { useI18n } from '/@/hooks/web/useI18n';
 import { useMessage } from '/@/hooks/web/useMessage';
@@ -20,6 +20,7 @@ import { h } from 'vue';
 interface UserState {
   userInfo: Nullable<UserInfo>;
   token?: string;
+  refreshToken?: string;
   roleList: RoleEnum[];
   sessionTimeout?: boolean;
   lastUpdateTime: number;
@@ -32,6 +33,8 @@ export const useUserStore = defineStore({
     userInfo: null,
     // token
     token: undefined,
+    // refreshToken
+    refreshToken: undefined,
     // roleList
     roleList: [],
     // Whether the login expired
@@ -43,10 +46,16 @@ export const useUserStore = defineStore({
     getUserInfo(): UserInfo {
       return this.userInfo || getAuthCache<UserInfo>(USER_INFO_KEY) || {};
     },
+    getRefreshToken(): string {
+      return this.refreshToken || getAuthCache<string>(REFRESH_TOKEN_KEY);
+    },
     getToken(): string {
       return this.token || getAuthCache<string>(TOKEN_KEY);
     },
     getRoleList(): RoleEnum[] {
+      return this.roleList.length > 0 ? this.roleList : getAuthCache<RoleEnum[]>(ROLES_KEY);
+    },
+    getRouteList(): RoleEnum[] {
       return this.roleList.length > 0 ? this.roleList : getAuthCache<RoleEnum[]>(ROLES_KEY);
     },
     getSessionTimeout(): boolean {
@@ -60,6 +69,10 @@ export const useUserStore = defineStore({
     setToken(info: string | undefined) {
       this.token = info ? info : ''; // for null or undefined value
       setAuthCache(TOKEN_KEY, info);
+    },
+    setRefreshToken(info: string | undefined) {
+      this.refreshToken = info ? info : ''; // for null or undefined value
+      setAuthCache(REFRESH_TOKEN_KEY, info);
     },
     setRoleList(roleList: RoleEnum[]) {
       this.roleList = roleList;
@@ -91,10 +104,10 @@ export const useUserStore = defineStore({
       try {
         const { goHome = true, mode, ...loginParams } = params;
         const data = await loginApi(loginParams, mode);
-        const { token } = data;
-
+        const { token, refreshToken } = data;
         // save token
         this.setToken(token);
+        this.setRefreshToken(refreshToken);
         return this.afterLoginAction(goHome);
       } catch (error) {
         return Promise.reject(error);
@@ -125,9 +138,15 @@ export const useUserStore = defineStore({
     async getUserInfoAction(): Promise<UserInfo | null> {
       if (!this.getToken) return null;
       const userInfo = await getUserInfo();
-      const { roles = [] } = userInfo;
-      if (isArray(roles)) {
-        const roleList = roles.map((item) => item.value) as RoleEnum[];
+      const { roleKeyList = [], roleNameList = [] } = userInfo;
+      if (isArray(roleKeyList) && isArray(roleNameList)) {
+        const roleInfos = [] as RoleInfo[];
+        roleKeyList.forEach((roleKey, index) => {
+          const roleInfo = { roleName: roleNameList[index], value: roleKey } as RoleInfo;
+          roleInfos.push(roleInfo);
+        });
+        userInfo.roles = roleInfos;
+        const roleList = roleKeyList as RoleEnum[];
         this.setRoleList(roleList);
       } else {
         userInfo.roles = [];
@@ -142,12 +161,13 @@ export const useUserStore = defineStore({
     async logout(goLogin = false) {
       if (this.getToken) {
         try {
-          await doLogout();
+          await doLogout({ refreshToken: this.getRefreshToken });
         } catch {
           console.log('注销Token失败');
         }
       }
       this.setToken(undefined);
+      this.setRefreshToken(undefined);
       this.setSessionTimeout(false);
       this.setUserInfo(null);
       goLogin && router.push(PageEnum.BASE_LOGIN);

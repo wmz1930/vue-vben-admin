@@ -36,19 +36,42 @@
             :class="`${prefixCls}-form`"
             class="relative w-full px-5 py-8 mx-auto my-auto rounded-md shadow-md xl:ml-16 xl:bg-transparent sm:px-8 xl:p-4 xl:shadow-none sm:w-3/4 lg:w-2/4 xl:w-auto enter-x"
           >
-            <LoginForm />
-            <ForgetPasswordForm />
-            <RegisterForm />
-            <MobileForm />
-            <QrCodeForm />
+            <LoginForm
+              ref="loginFormRef"
+              @show-verify="handleShowVerify"
+              @refresh-image-code="refreshImageCode"
+            />
+            <ForgetPasswordForm
+              ref="forgetPasswordFormRef"
+              @show-verify="handleShowVerify"
+              @refresh-image-code="refreshImageCode"
+            />
+            <RegisterForm
+              ref="registerFormRef"
+              @show-verify="handleShowVerify"
+              @refresh-image-code="refreshImageCode"
+            />
+            <MobileForm
+              ref="mobileFormRef"
+              @show-verify="handleShowVerify"
+              @refresh-image-code="refreshImageCode"
+            />
+            <QrCodeForm ref="qrCodeFormRef" />
           </div>
         </div>
       </div>
     </div>
   </div>
+  <Verify
+    @success="handleSubmit"
+    :mode="'pop'"
+    :captchaType="captchaState.slidingCaptchaType"
+    :imgSize="{ width: '330px', height: '155px' }"
+    ref="verifyRef"
+  />
 </template>
-<script lang="ts" setup>
-  import { computed } from 'vue';
+<script lang="ts">
+  import { defineComponent, ref, unref, computed, onBeforeMount } from 'vue';
   import { AppLogo } from '/@/components/Application';
   import { AppLocalePicker, AppDarkModeToggle } from '/@/components/Application';
   import LoginForm from './LoginForm.vue';
@@ -61,18 +84,128 @@
   import { useDesign } from '/@/hooks/web/useDesign';
   import { useLocaleStore } from '/@/store/modules/locale';
 
-  defineProps({
-    sessionTimeout: {
-      type: Boolean,
+  import { LoginStateEnum, useLoginState, useCaptchaState } from './useLogin';
+
+  import Verify from '/@/components/verifition/Verify.vue';
+
+  import { getCaptchaType, getImageCaptcha } from '/@/api/login';
+
+  export default defineComponent({
+    name: 'Login',
+    components: {
+      AppLogo,
+      AppLocalePicker,
+      AppDarkModeToggle,
+      LoginForm,
+      ForgetPasswordForm,
+      RegisterForm,
+      MobileForm,
+      QrCodeForm,
+      Verify,
+    },
+    props: {
+      sessionTimeout: {
+        type: Boolean,
+      },
+    },
+    setup(_, {}) {
+      const globSetting = useGlobSetting();
+      const { prefixCls } = useDesign('login');
+      const { t } = useI18n();
+      const localeStore = useLocaleStore();
+      const showLocale = localeStore.getShowPicker;
+      const title = computed(() => globSetting?.title ?? '');
+
+      const { getLoginState } = useLoginState();
+
+      const {
+        setGrantType,
+        setLoginCaptchaType,
+        setSlidingCaptchaType,
+        setCaptchaImage,
+        getCaptchaState,
+      } = useCaptchaState();
+
+      // 滑动验证码引用
+      const verifyRef = ref();
+      // 账号密码登录
+      const loginFormRef = ref();
+      // 手机号验证码登录
+      const mobileFormRef = ref();
+      // 用户注册
+      const registerFormRef = ref();
+      // 忘记密码
+      const forgetPasswordFormRef = ref();
+
+      const captchaState = unref(getCaptchaState);
+
+      const loginState = unref(getLoginState);
+
+      // 获取系统配置的验证码方式
+      onBeforeMount(async () => {
+        const loginCaptchaType = await queryCaptchaType();
+        setLoginCaptchaType(loginCaptchaType);
+        if (captchaState.loginCaptchaType === 'image') {
+          // 加载图片验证码
+          refreshImageCode();
+        }
+      });
+
+      // 获取系统配置的验证码方式loginCaptchaType：sliding: 滑动验证码 image: 图片验证码
+      async function queryCaptchaType(): Promise<string | ''> {
+        return await getCaptchaType().then((res) => {
+          return res;
+        });
+      }
+
+      // 当loginCaptchaType = image时刷新图片验证码的方法
+      function refreshImageCode() {
+        getImageCaptcha().then((res) => {
+          captchaState.captchaKey = res.captchaKey;
+          captchaState.captchaImage = res.captchaImage;
+        });
+      }
+
+      function handleShowVerify() {
+        verifyRef.value.show();
+      }
+
+      // 点击滑动验证码，成功之后的回调
+      function handleSubmit(params) {
+        if (loginState === LoginStateEnum.LOGIN) {
+          loginFormRef.value.handleLoginSubmit(params);
+        } else if (loginState === LoginStateEnum.MOBILE) {
+          mobileFormRef.value.handleLoginSubmit(params);
+        } else if (loginState === LoginStateEnum.REGISTER) {
+          registerFormRef.value.handleRegisterSubmit(params);
+        } else if (loginState === LoginStateEnum.RESET_PASSWORD) {
+          forgetPasswordFormRef.value.handleResetSubmit(params);
+        }
+      }
+
+      return {
+        t,
+        prefixCls,
+        loginFormRef,
+        mobileFormRef,
+        registerFormRef,
+        forgetPasswordFormRef,
+        queryCaptchaType,
+        refreshImageCode,
+        captchaState,
+        setGrantType,
+        setLoginCaptchaType,
+        setSlidingCaptchaType,
+        setCaptchaImage,
+        getCaptchaState,
+        verifyRef,
+        handleShowVerify,
+        handleSubmit,
+        showLocale,
+        title,
+      };
     },
   });
-
-  const globSetting = useGlobSetting();
-  const { prefixCls } = useDesign('login');
-  const { t } = useI18n();
-  const localeStore = useLocaleStore();
-  const showLocale = localeStore.getShowPicker;
-  const title = computed(() => globSetting?.title ?? '');
 </script>
 <style lang="less">
   @prefix-cls: ~'@{namespace}-login';
@@ -171,6 +304,22 @@
           width: 48px;
         }
       }
+    }
+
+    .v-code-img-input {
+      min-width: 70% !important;
+    }
+
+    .v-code-img {
+      display: inline-block;
+      vertical-align: top;
+      height: 40px;
+      width: 100%;
+      border-radius: 1px;
+      border: 1px solid #40a9ff !important;
+      cursor: pointer;
+      opacity: 0.8;
+      filter: alpha(opacity=60);
     }
 
     &-sign-in-way {

@@ -147,6 +147,12 @@ export interface GlobConfig {
   urlPrefix?: string;
   // Project abbreviation
   shortName: string;
+  // TenantId
+  tenantId: string | number | undefined;
+  // Project abbreviation
+  clientId: string | undefined;
+  // Project abbreviation
+  clientSecret: string | undefined;
 }
 export interface GlobEnvConfig {
   // Site title
@@ -159,4 +165,10 @@ export interface GlobEnvConfig {
   VITE_GLOB_APP_SHORT_NAME: string;
   // Upload url
   VITE_GLOB_UPLOAD_URL?: string;
+  // TenantId
+  VITE_GLOB_TENANT_ID?: string | number | undefined;
+  // clientId
+  VITE_GLOB_CLIENT_ID?: string | undefined;
+  // clientSecret
+  VITE_GLOB_CLIENT_SECRET?: string | undefined;
 }

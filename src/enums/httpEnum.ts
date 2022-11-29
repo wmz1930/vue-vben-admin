@@ -2,9 +2,11 @@
  * @description: Request result set
  */
 export enum ResultEnum {
-  SUCCESS = 0,
-  ERROR = -1,
+  SUCCESS = 200,
+  ERROR = 500,
   TIMEOUT = 401,
+  FORBIDDEN = 403,
+  NEED_CAPTCHA = 427,
   TYPE = 'success',
 }
 
@@ -28,4 +30,14 @@ export enum ContentTypeEnum {
   FORM_URLENCODED = 'application/x-www-form-urlencoded;charset=UTF-8',
   // form-data  upload
   FORM_DATA = 'multipart/form-data;charset=UTF-8',
+}
+
+/**
+ * @description:  Authorization Type
+ */
+export enum AuthorizationTypeEnum {
+  // Basic
+  BASIC = 'Basic',
+  // Bearer
+  BEARER = 'Bearer',
 }

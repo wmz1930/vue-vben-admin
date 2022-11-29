@@ -31,10 +31,28 @@ export interface ErrorLogInfo {
 }
 
 export interface UserInfo {
-  userId: string | number;
-  username: string;
+  // 用户id
+  id: string | number;
+  // 用户名
+  account: string;
+  // 用户名
+  nickname: string;
+  // 真实名字
   realName: string;
+  // 头像
   avatar: string;
+  // 介绍
+  desc?: string;
+  // 机构id
+  organizationId: string;
+  // 机构名称
+  organizationName: string;
+  // 角色id列表
+  roleIdList: string[];
+  // 角色列表
+  roleKeyList: string[];
+  // 角色名称列表
+  roleNameList: string[];
   desc?: string;
   homePath?: string;
   roles: RoleInfo[];

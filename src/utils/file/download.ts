@@ -1,5 +1,6 @@
 import { openWindow } from '..';
 import { dataURLtoBlob, urlToBase64 } from './base64Conver';
+import { useMessage } from '/@/hooks/web/useMessage';
 
 /**
  * Download online pictures
@@ -93,4 +94,33 @@ export function downloadByUrl({
 
   openWindow(url, { target });
   return true;
+}
+
+// 导出Excel
+export function exportBlod(fileName, data) {
+  const blob = new Blob([data]);
+  const elink = document.createElement('a');
+  elink.download = fileName;
+  elink.style.display = 'none';
+  elink.href = URL.createObjectURL(blob);
+  document.body.appendChild(elink);
+  elink.click();
+  URL.revokeObjectURL(elink.href);
+  document.body.removeChild(elink);
+}
+
+// 处理请求返回信息
+export function handleDownloadBlod(fileName, response) {
+  const res = response.data;
+  if (res.type === 'application/json') {
+    const reader = new FileReader();
+    reader.readAsText(response.data, 'utf-8');
+    reader.onload = function () {
+      const { createMessage } = useMessage();
+      const { msg } = JSON.parse(reader.result as string);
+      createMessage.error('下载失败：' + msg);
+    };
+  } else {
+    exportBlod(fileName, res);
+  }
 }

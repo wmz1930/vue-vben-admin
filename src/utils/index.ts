@@ -36,7 +36,7 @@ export function setObjToUrlParams(baseUrl: string, obj: any): string {
 // 深度合并
 export function deepMerge<T = any>(src: any = {}, target: any = {}): T {
   let key: string;
-  const res: any = cloneDeep(src)
+  const res: any = cloneDeep(src);
   for (key in target) {
     res[key] = isObject(res[key]) ? deepMerge(res[key], target[key]) : (res[key] = target[key]);
   }
@@ -92,3 +92,43 @@ export const withInstall = <T>(component: T, alias?: string) => {
   };
   return component as T & Plugin;
 };
+
+// 表单序列化
+export const serialize = (data) => {
+  const list: string[] = [];
+  Object.keys(data).forEach((ele) => {
+    list.push(`${ele}=${data[ele]}`);
+  });
+  return list.join('&').replace(/\+/g, '%2B');
+};
+
+// 导出Excel
+export function exportBlod(fileName, data) {
+  const blob = new Blob([data]);
+  const elink = document.createElement('a');
+  elink.download = fileName;
+  elink.style.display = 'none';
+  elink.href = URL.createObjectURL(blob);
+  document.body.appendChild(elink);
+  elink.click();
+  URL.revokeObjectURL(elink.href);
+  document.body.removeChild(elink);
+}
+
+// 处理请求返回信息
+export function handleDownloadBlod(fileName, response) {
+  const res = response.data;
+  if (res.type === 'application/json') {
+    const reader = new FileReader();
+    reader.readAsText(response.data, 'utf-8');
+    reader.onload = function () {
+      // const { msg } = JSON.parse(reader.result);
+      // notification.error({
+      //   message: '下载失败',
+      //   description: msg,
+      // });
+    };
+  } else {
+    exportBlod(fileName, res);
+  }
+}

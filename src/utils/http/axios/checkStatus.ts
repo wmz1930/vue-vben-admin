@@ -15,6 +15,7 @@ export function checkStatus(
   status: number,
   msg: string,
   errorMessageMode: ErrorMessageMode = 'message',
+  skipUnauthorized: boolean,
 ): void {
   const { t } = useI18n();
   const userStore = useUserStoreWithOut();
@@ -28,12 +29,15 @@ export function checkStatus(
     // Jump to the login page if not logged in, and carry the path of the current page
     // Return to the current page after successful login. This step needs to be operated on the login page.
     case 401:
-      userStore.setToken(undefined);
-      errMessage = msg || t('sys.api.errMsg401');
-      if (stp === SessionTimeoutProcessingEnum.PAGE_COVERAGE) {
-        userStore.setSessionTimeout(true);
-      } else {
-        userStore.logout(true);
+      // 这里增加参数，判断，当非refresh_token操作时，跳过自动退出，而是执行refresh token操作，当refresh_token也是401时，才执行退出
+      if (!skipUnauthorized) {
+        userStore.setToken(undefined);
+        errMessage = msg || t('sys.api.errMsg401');
+        if (stp === SessionTimeoutProcessingEnum.PAGE_COVERAGE) {
+          userStore.setSessionTimeout(true);
+        } else {
+          userStore.logout(true);
+        }
       }
       break;
     case 403:

@@ -1,13 +1,16 @@
 import { defHttp } from '/@/utils/http/axios';
-import { LoginParams, LoginResultModel, GetUserInfoModel } from './model/userModel';
+import { LoginParams, LogoutParams, LoginResultModel, GetUserInfoModel } from './model/userModel';
+import type { CreateAxiosOptions } from '/@/utils/http/axios/axiosTransform';
+import { ContentTypeEnum, AuthorizationTypeEnum } from '/@/enums/httpEnum';
+import { AxiosAuthRefreshRequestConfig } from 'axios-auth-refresh';
 
 import { ErrorMessageMode } from '/#/axios';
 
 enum Api {
-  Login = '/login',
-  Logout = '/logout',
-  GetUserInfo = '/getUserInfo',
-  GetPermCode = '/getPermCode',
+  Login = '/gitegg-oauth/oauth/token',
+  Logout = '/gitegg-oauth/oauth/logout',
+  GetUserInfo = '/gitegg-oauth/oauth/user/info',
+  GetPermCode = '/gitegg-service-system/resource/user/resource',
   TestRetry = '/testRetry',
 }
 
@@ -18,8 +21,12 @@ export function loginApi(params: LoginParams, mode: ErrorMessageMode = 'modal') 
   return defHttp.post<LoginResultModel>(
     {
       url: Api.Login,
-      params,
-    },
+      authenticationScheme: AuthorizationTypeEnum.BASIC,
+      headers: {
+        'Content-Type': ContentTypeEnum.FORM_URLENCODED,
+      },
+      params: params,
+    } as CreateAxiosOptions,
     {
       errorMessageMode: mode,
     },
@@ -34,11 +41,20 @@ export function getUserInfo() {
 }
 
 export function getPermCode() {
-  return defHttp.get<string[]>({ url: Api.GetPermCode });
+  return defHttp.get<[]>({ url: Api.GetPermCode });
 }
 
-export function doLogout() {
-  return defHttp.get({ url: Api.Logout });
+export function doLogout(params: LogoutParams, mode: ErrorMessageMode = 'modal') {
+  return defHttp.post(
+    {
+      url: Api.Logout,
+      skipAuthRefresh: true,
+      data: params,
+    } as AxiosAuthRefreshRequestConfig,
+    {
+      errorMessageMode: mode,
+    },
+  );
 }
 
 export function testRetry() {

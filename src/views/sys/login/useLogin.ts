@@ -13,18 +13,67 @@ export enum LoginStateEnum {
 
 const currentState = ref(LoginStateEnum.LOGIN);
 
+// 验证码登录相关配置
+const captchaState = ref({
+  // 获取token的模式
+  grant_type: 'password',
+  // 验证码是滑动验证码还是图片验证码
+  loginCaptchaType: 'sliding',
+  // 滑动验证码的形式
+  slidingCaptchaType: 'blockPuzzle',
+  // 图片验证码校验标识
+  captchaKey: '',
+  // 图片验证码的默认图片
+  captchaImage:
+    'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAEALAAAAAABAAEAAAICRAEAOw==',
+});
+
 export function useLoginState() {
+  // 登录方式
   function setLoginState(state: LoginStateEnum) {
     currentState.value = state;
   }
-
-  const getLoginState = computed(() => currentState.value);
 
   function handleBackLogin() {
     setLoginState(LoginStateEnum.LOGIN);
   }
 
+  const getLoginState = computed(() => currentState.value);
+
   return { setLoginState, getLoginState, handleBackLogin };
+}
+
+export function useCaptchaState() {
+  function setGrantType(grant_type: string) {
+    captchaState.value.grant_type = grant_type;
+  }
+
+  function setLoginCaptchaType(loginCaptchaType: string) {
+    captchaState.value.loginCaptchaType = loginCaptchaType;
+  }
+
+  function setSlidingCaptchaType(slidingCaptchaType: string) {
+    captchaState.value.slidingCaptchaType = slidingCaptchaType;
+  }
+
+  function setCaptchaKey(captchaKey: string) {
+    captchaState.value.captchaKey = captchaKey;
+  }
+
+  function setCaptchaImage(captchaImage: string) {
+    captchaState.value.captchaImage = captchaImage;
+  }
+
+  const getCaptchaState = computed(() => captchaState.value);
+
+  return {
+    setGrantType,
+    setLoginCaptchaType,
+    setSlidingCaptchaType,
+    setCaptchaKey,
+    setCaptchaImage,
+    getCaptchaState,
+  };
 }
 
 export function useFormValid<T extends Object = any>(formRef: Ref<any>) {
@@ -43,6 +92,7 @@ export function useFormRules(formData?: Recordable) {
 
   const getAccountFormRule = computed(() => createRule(t('sys.login.accountPlaceholder')));
   const getPasswordFormRule = computed(() => createRule(t('sys.login.passwordPlaceholder')));
+  const getCaptchaFormRule = computed(() => createRule(t('sys.login.captchaPlaceholder')));
   const getSmsFormRule = computed(() => createRule(t('sys.login.smsPlaceholder')));
   const getMobileFormRule = computed(() => createRule(t('sys.login.mobilePlaceholder')));
 
@@ -65,6 +115,7 @@ export function useFormRules(formData?: Recordable) {
   const getFormRules = computed((): { [k: string]: ValidationRule | ValidationRule[] } => {
     const accountFormRule = unref(getAccountFormRule);
     const passwordFormRule = unref(getPasswordFormRule);
+    const captchaFormRule = unref(getCaptchaFormRule);
     const smsFormRule = unref(getSmsFormRule);
     const mobileFormRule = unref(getMobileFormRule);
 
@@ -72,11 +123,24 @@ export function useFormRules(formData?: Recordable) {
       sms: smsFormRule,
       mobile: mobileFormRule,
     };
+
+    const usernameRule = {
+      username: accountFormRule,
+      password: passwordFormRule,
+    };
+
+    if (
+      captchaState.value.grant_type === 'captcha' &&
+      captchaState.value.loginCaptchaType === 'image'
+    ) {
+      usernameRule['captcha_code'] = captchaFormRule;
+    }
+
     switch (unref(currentState)) {
       // register form rules
       case LoginStateEnum.REGISTER:
         return {
-          account: accountFormRule,
+          username: accountFormRule,
           password: passwordFormRule,
           confirmPassword: [
             { validator: validateConfirmPassword(formData?.password), trigger: 'change' },
@@ -88,7 +152,7 @@ export function useFormRules(formData?: Recordable) {
       // reset password form rules
       case LoginStateEnum.RESET_PASSWORD:
         return {
-          account: accountFormRule,
+          username: accountFormRule,
           ...mobileRule,
         };
 
@@ -98,10 +162,7 @@ export function useFormRules(formData?: Recordable) {
 
       // login form rules
       default:
-        return {
-          account: accountFormRule,
-          password: passwordFormRule,
-        };
+        return usernameRule;
     }
   });
   return { getFormRules };

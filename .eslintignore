@@ -1,6 +1,7 @@
 
 *.sh
 node_modules
+/node_modules
 *.md
 *.woff
 *.ttf
@@ -8,6 +9,7 @@ node_modules
 .idea
 dist
 /public
+/src/components/verifition
 /docs
 .husky
 .local
